@@ -25,7 +25,7 @@ contract Vote {
     Proposal[] public proposals;
 
     event ProposalCreated(uint256 proposalIndex, string name, string description, address proposer);
-    event Voted(uint256 proposalIndex, address voter, VoteType voteType);
+    event Voted(uint256 proposalIndex, address voter, VoteType vote, VoteType previousVote);
 
     constructor() {
         proposalIndex = 0;
@@ -57,8 +57,17 @@ contract Vote {
 
     function vote(uint256 index, VoteType voteType) external {
         require(index < proposalIndex, "Invalid proposal index.");
-        require(votes[msg.sender][index] == VoteType.None, "Already voted.");
         require(voteType != VoteType.None, "Invalid vote type.");
+
+        // remove previous vote
+        VoteType previousVote = votes[msg.sender][index];
+        if (previousVote == VoteType.Abstain) {
+            proposals[index].abstainVotes -= 1;
+        } else if (previousVote == VoteType.Yes) {
+            proposals[index].yesVotes -= 1;
+        } else if (previousVote == VoteType.No) {
+            proposals[index].noVotes -= 1;
+        }
 
         // update votes 
         votes[msg.sender][index] = voteType;
@@ -71,6 +80,6 @@ contract Vote {
             proposals[index].noVotes += 1;
         }
 
-        emit Voted(index, msg.sender, voteType);
+        emit Voted(index, msg.sender, voteType, previousVote);
     }
 }
