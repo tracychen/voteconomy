@@ -1,0 +1,137 @@
+import {
+  BiconomySmartAccountV2,
+  DEFAULT_ENTRYPOINT_ADDRESS,
+} from "@biconomy/account";
+import { Bundler } from "@biconomy/bundler";
+import { ethers } from "ethers";
+import { BiconomyPaymaster, PaymasterMode } from "@biconomy/paymaster";
+import { chainConfigs, chainId, privateKey, provider } from "./env";
+import {
+  BaseValidationModule,
+  DEFAULT_ECDSA_OWNERSHIP_MODULE,
+  DEFAULT_SESSION_KEY_MANAGER_MODULE,
+  ECDSAOwnershipValidationModule,
+  SessionKeyManagerModule,
+} from "@biconomy/modules";
+import { defaultAbiCoder } from "ethers/lib/utils";
+
+const bundler = new Bundler({
+  bundlerUrl: `https://bundler.biconomy.io/api/v2/${chainId}/nJPK7B3ru.dd7f7861-190d-41bd-af80-6877f74b8f44`,
+  chainId,
+  entryPointAddress: DEFAULT_ENTRYPOINT_ADDRESS,
+});
+
+const paymaster = new BiconomyPaymaster({
+  paymasterUrl: chainConfigs[chainId].paymasterUrl,
+});
+
+const wallet = new ethers.Wallet(privateKey, provider);
+
+console.debug("wallet address", wallet.address);
+
+export async function createAccount(validationModule?: BaseValidationModule) {
+  console.debug("chain id is", chainId);
+  const vModule =
+    validationModule ||
+    (await ECDSAOwnershipValidationModule.create({
+      signer: wallet,
+      moduleAddress: DEFAULT_ECDSA_OWNERSHIP_MODULE,
+    }));
+
+  const biconomyAccount = await BiconomySmartAccountV2.create({
+    chainId,
+    bundler,
+    paymaster,
+    rpcUrl: chainConfigs[chainId].rpcUrl,
+    entryPointAddress: DEFAULT_ENTRYPOINT_ADDRESS,
+    defaultValidationModule: vModule,
+    activeValidationModule: vModule,
+  });
+
+  console.debug(
+    "smart account address",
+    await biconomyAccount.getAccountAddress()
+  );
+
+  return biconomyAccount;
+}
+
+export async function createSessionKey() {
+  const sessionSigner = ethers.Wallet.createRandom();
+  const sessionKeyEOA = await sessionSigner.getAddress();
+  console.log("sessionKeyEOA", sessionKeyEOA);
+  console.log("sessionPKey", sessionSigner.privateKey);
+  const smartAccount = await createAccount();
+  const sessionModule = await SessionKeyManagerModule.create({
+    moduleAddress: DEFAULT_SESSION_KEY_MANAGER_MODULE,
+    smartAccountAddress: await smartAccount.getAccountAddress(),
+  });
+  // create session key data
+  const sessionKeyData = defaultAbiCoder.encode(
+    ["address", "address"],
+    [
+      sessionKeyEOA,
+      chainConfigs[chainId].voteContract, // vote contract address
+    ]
+  );
+
+  const sessionTxData = await sessionModule.createSessionData([
+    {
+      validUntil: 0,
+      validAfter: 0,
+      sessionValidationModule:
+        chainConfigs[chainId].voteSessionValidationModuleContract,
+      sessionPublicKey: sessionKeyEOA,
+      sessionKeyData: sessionKeyData,
+    },
+  ]);
+  console.log("sessionTxData", sessionTxData);
+
+  // tx to set session key
+  const setSessiontrx = {
+    to: DEFAULT_SESSION_KEY_MANAGER_MODULE, // session manager module address
+    data: sessionTxData.data,
+  };
+
+  // -----> enableModule session manager module
+  const enableModuleTrx = await smartAccount.getEnableModuleData(
+    DEFAULT_SESSION_KEY_MANAGER_MODULE
+  );
+
+  return await createTransaction([enableModuleTrx, setSessiontrx]);
+}
+
+export async function createTransaction(transactions: any[]) {
+  let smartAccount = await createAccount();
+
+  const userOp = await smartAccount.buildUserOp(transactions);
+  console.debug("user op", userOp);
+
+  try {
+    const paymasterAndDataResponse = await paymaster.getPaymasterAndData(
+      userOp,
+      {
+        mode: PaymasterMode.SPONSORED,
+        smartAccountInfo: {
+          name: "BICONOMY",
+          version: "2.0.0",
+        },
+      }
+    );
+    console.debug("paymaster and data response", paymasterAndDataResponse);
+    userOp.paymasterAndData = paymasterAndDataResponse.paymasterAndData;
+    const userOpResponse = await smartAccount.sendUserOp(userOp);
+
+    console.debug("waiting for user op tx", userOpResponse);
+
+    const transactionDetail = await userOpResponse.wait();
+
+    console.log("transaction detail below", transactionDetail.receipt);
+    console.log(
+      `${chainConfigs[chainId].blockExplorerUrl}/tx/${transactionDetail.receipt.transactionHash}`
+    );
+    return transactionDetail.receipt;
+  } catch (e) {
+    console.log("error", e);
+  }
+}
