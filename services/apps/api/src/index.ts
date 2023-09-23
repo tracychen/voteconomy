@@ -2,6 +2,8 @@ import { json, urlencoded } from "body-parser";
 import express from "express";
 import morgan from "morgan";
 import cors from "cors";
+import proposolsRouter from "./routes/proposals";
+import loginRouter from "./routes/login";
 
 const app = express();
 
@@ -20,3 +22,6 @@ app.listen(port, () => {
 app.get("/health", (req, res) => {
   res.json({ ok: true });
 });
+
+app.use("/proposals", proposolsRouter);
+app.use("/login", loginRouter);
