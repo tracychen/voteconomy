@@ -21,20 +21,19 @@ const bundler = new Bundler({
   entryPointAddress: DEFAULT_ENTRYPOINT_ADDRESS,
 });
 
-const paymaster = new BiconomyPaymaster({
+export const paymaster = new BiconomyPaymaster({
   paymasterUrl: chainConfigs[chainId].paymasterUrl,
 });
 
-const wallet = new ethers.Wallet(privateKey, provider);
-
-console.debug("wallet address", wallet.address);
-
-export async function createAccount(validationModule?: BaseValidationModule) {
+export async function createAccount(
+  signer: ethers.Signer,
+  validationModule?: BaseValidationModule
+) {
   console.debug("chain id is", chainId);
   const vModule =
     validationModule ||
     (await ECDSAOwnershipValidationModule.create({
-      signer: wallet,
+      signer,
       moduleAddress: DEFAULT_ECDSA_OWNERSHIP_MODULE,
     }));
 
@@ -56,12 +55,12 @@ export async function createAccount(validationModule?: BaseValidationModule) {
   return biconomyAccount;
 }
 
-export async function createSessionKey() {
+export async function createSessionKey(signer: ethers.Signer) {
   const sessionSigner = ethers.Wallet.createRandom();
   const sessionKeyEOA = await sessionSigner.getAddress();
   console.log("sessionKeyEOA", sessionKeyEOA);
   console.log("sessionPKey", sessionSigner.privateKey);
-  const smartAccount = await createAccount();
+  const smartAccount = await createAccount(signer);
   const sessionModule = await SessionKeyManagerModule.create({
     moduleAddress: DEFAULT_SESSION_KEY_MANAGER_MODULE,
     smartAccountAddress: await smartAccount.getAccountAddress(),
@@ -101,37 +100,38 @@ export async function createSessionKey() {
   return await createTransaction([enableModuleTrx, setSessiontrx]);
 }
 
-export async function createTransaction(transactions: any[]) {
-  let smartAccount = await createAccount();
+export async function createTransaction(
+  transactions: any[],
+  smartAccountOptional?: BiconomySmartAccountV2
+) {
+  let smartAccount = smartAccountOptional;
+  if (!smartAccount) {
+    const signer = new ethers.Wallet(privateKey, provider);
+    console.log("getting smart accound for signer address", signer.address);
+    smartAccount = await createAccount(signer);
+  }
 
   const userOp = await smartAccount.buildUserOp(transactions);
-  console.debug("user op", userOp);
+  console.log("user op", userOp);
 
-  try {
-    const paymasterAndDataResponse = await paymaster.getPaymasterAndData(
-      userOp,
-      {
-        mode: PaymasterMode.SPONSORED,
-        smartAccountInfo: {
-          name: "BICONOMY",
-          version: "2.0.0",
-        },
-      }
-    );
-    console.debug("paymaster and data response", paymasterAndDataResponse);
-    userOp.paymasterAndData = paymasterAndDataResponse.paymasterAndData;
-    const userOpResponse = await smartAccount.sendUserOp(userOp);
+  const paymasterAndDataResponse = await paymaster.getPaymasterAndData(userOp, {
+    mode: PaymasterMode.SPONSORED,
+    smartAccountInfo: {
+      name: "BICONOMY",
+      version: "2.0.0",
+    },
+  });
+  console.log("paymaster and data response", paymasterAndDataResponse);
+  userOp.paymasterAndData = paymasterAndDataResponse.paymasterAndData;
+  const userOpResponse = await smartAccount.sendUserOp(userOp);
 
-    console.debug("waiting for user op tx", userOpResponse);
+  console.log("waiting for user op tx", userOpResponse);
 
-    const transactionDetail = await userOpResponse.wait();
+  const transactionDetail = await userOpResponse.wait();
 
-    console.log("transaction detail below", transactionDetail.receipt);
-    console.log(
-      `${chainConfigs[chainId].blockExplorerUrl}/tx/${transactionDetail.receipt.transactionHash}`
-    );
-    return transactionDetail.receipt;
-  } catch (e) {
-    console.log("error", e);
-  }
+  console.log("transaction detail below", transactionDetail.receipt);
+  console.log(
+    `${chainConfigs[chainId].blockExplorerUrl}/tx/${transactionDetail.receipt.transactionHash}`
+  );
+  return transactionDetail.receipt;
 }
