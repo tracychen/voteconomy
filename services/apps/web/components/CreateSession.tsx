@@ -155,7 +155,7 @@ const CreateSession: React.FC<props> = ({
     }
   };
   return (
-    <div>
+    <div className="flex flex-col gap-4">
       {!isSessionActive &&
         (isSessionKeyModuleEnabled ? (
           <Button
@@ -168,7 +168,7 @@ const CreateSession: React.FC<props> = ({
             {isLoading ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Creating session, please wait...
+                Creating session...
               </>
             ) : (
               <>Create Session</>

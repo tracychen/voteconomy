@@ -13,6 +13,7 @@ import Proposal from "./Proposal";
 import { useToast } from "./ui/use-toast";
 import { ToastAction } from "./ui/toast";
 import CreateProposal from "./CreateProposal";
+import { Separator } from "./ui/separator";
 
 interface props {
   smartAccount: BiconomySmartAccountV2;
@@ -121,7 +122,7 @@ const Vote: React.FC<props> = ({ smartAccount, provider, address }) => {
       console.log("txHash", receipt.transactionHash);
       console.log("txHash", receipt.transactionHash);
       toast({
-        title: "Successfully voted",
+        title: `Successfully voted on proposal ${proposalId}`,
         action: (
           <ToastAction
             altText="View Transaction"
@@ -143,9 +144,10 @@ const Vote: React.FC<props> = ({ smartAccount, provider, address }) => {
   };
   return (
     <div className="flex flex-col gap-2">
+      <Separator className="my-8" />
       <h2 className="text-xl">Proposals</h2>
-      <div className="flex flex-col md:flex-row gap-4">
-        <div className="w-full md:w-1/3">
+      <div className="flex flex-col md:flex-row gap-4 w-full">
+        <div className="w-full md:w-1/3 lg:w-1/4">
           <CreateProposal
             smartAccount={smartAccount}
             provider={provider}
@@ -153,7 +155,7 @@ const Vote: React.FC<props> = ({ smartAccount, provider, address }) => {
             updateProposals={updateProposals}
           />
         </div>
-        <div className="flex flex-wrap gap-4">
+        <div className="flex flex-wrap gap-4 md:w-2/3 lg:w-3/4">
           {proposals.map((proposal, index) => {
             return (
               <Proposal

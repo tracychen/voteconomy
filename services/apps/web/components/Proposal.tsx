@@ -48,9 +48,11 @@ const Proposal: React.FC<props> = ({ id, proposal, vote }) => {
 
   return (
     <>
-      <Card className="w-full md:w-[380px]">
+      <Card className="w-full md:w-[380px] shadow-none">
         <CardHeader>
-          <CardTitle>{proposal.name}</CardTitle>
+          <CardTitle>
+            P-{id}: {proposal.name}
+          </CardTitle>
           <CardDescription>
             <div className="flex-col gap-1">
               <div>{proposal.description}</div>
