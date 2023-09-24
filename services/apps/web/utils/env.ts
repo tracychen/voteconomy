@@ -22,19 +22,24 @@ export const chainConfigs = {
     rpcUrl: "https://goerli-rollup.arbitrum.io/rpc",
     paymasterUrl: process.env.ARBITRUM_GOERLI_PAYMASTER_URL || "",
     blockExplorerUrl: "https://testnet.arbiscan.io",
+    voteSessionValidationModuleContract:
+      "0xe8b442ae8c9cc7a3ae5992da52d20767dfe8d825",
   },
   [ChainId.POLYGON_MUMBAI]: {
     voteContract: "0x764A93978e1f0028e66cFE4DDDE097308dE2ED16",
     rpcUrl: "https://rpc-mumbai.maticvigil.com",
     paymasterUrl: process.env.POLYGON_MUMBAI_PAYMASTER_URL || "",
     blockExplorerUrl: "https://mumbai.polygonscan.com",
+    voteSessionValidationModuleContract:
+      "0xe8b442ae8c9cc7a3ae5992da52d20767dfe8d825",
+  },
   [ChainId.LINEA_TESTNET]: {
     voteContract: "0x764A93978e1f0028e66cFE4DDDE097308dE2ED16",
     rpcUrl: "https://linea-testnet.rpc.thirdweb.com",
     paymasterUrl: process.env.LINEA_TESTNET_PAYMASTER_URL || "",
     blockExplorerUrl: "https://goerli.lineascan.build",
     voteSessionValidationModuleContract:
-      "0xE8B442Ae8C9cc7a3Ae5992da52d20767dFe8d825",
+      "0xe8b442ae8c9cc7a3ae5992da52d20767dfe8d825",
   },
 };
 export const thirdwebSecretKey = process.env.THIRDWEB_SECRET_KEY || "";
