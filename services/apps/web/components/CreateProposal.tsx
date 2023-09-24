@@ -1,60 +1,51 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
-import { ethers } from "ethers";
-import { SessionKeyManagerModule } from "@biconomy/modules";
 import { BiconomySmartAccountV2 } from "@biconomy/account";
-import { DEFAULT_SESSION_KEY_MANAGER_MODULE } from "@biconomy/modules";
+import { Button } from "./ui/button";
+import { ethers } from "ethers";
+import { useState } from "react";
+import { useToast } from "./ui/use-toast";
+import {
+  DEFAULT_SESSION_KEY_MANAGER_MODULE,
+  SessionKeyManagerModule,
+} from "@biconomy/modules";
 import { chainConfigs, chainId, voteContract } from "../utils/env";
 import { paymaster } from "../utils/biconomy";
 import { PaymasterMode } from "@biconomy/paymaster";
-import { getProposals } from "../services/proposals";
-import Proposal from "./Proposal";
-import { useToast } from "./ui/use-toast";
 import { ToastAction } from "./ui/toast";
-import CreateProposal from "./CreateProposal";
+import { Label } from "./ui/label";
+import { Textarea } from "./ui/textarea";
+import { Input } from "./ui/input";
+import { Loader2 } from "lucide-react";
 
 interface props {
   smartAccount: BiconomySmartAccountV2;
   provider: ethers.providers.JsonRpcProvider;
   address: string;
+  updateProposals: () => Promise<void>;
 }
 
-const Vote: React.FC<props> = ({ smartAccount, provider, address }) => {
-  const [proposals, setProposals] = useState<any[]>([]);
+const CreateProposal: React.FC<props> = ({
+  smartAccount,
+  provider,
+  address,
+  updateProposals,
+}) => {
   const { toast } = useToast();
 
-  const updateProposals = async () => {
-    const proposals = await getProposals();
-    console.log("proposals", proposals);
-    setProposals(proposals);
-  };
+  const [name, setName] = useState<string>("");
+  const [description, setDescription] = useState<string>("");
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
-  useEffect(() => {
-    updateProposals();
-  }, []);
-
-  const vote = async (proposalId: number, voteType: number) => {
+  const createProposal = async (name: string, description: string) => {
     if (!address || !smartAccount || !address) {
       alert("Please connect wallet first");
       return;
     }
     try {
-      const getTitle = () => {
-        switch (voteType) {
-          case 1:
-            return "Voting Abstain...";
-          case 2:
-            return "Voting Yes...";
-          case 3:
-            return "Voting No...";
-          default:
-            return "Voting...";
-        }
-      };
       toast({
-        title: getTitle(),
-        description: "Please wait while we persist your vote on-chain",
+        title: "Creating proposal...",
+        description: "Please wait while we persist your proposal on-chain",
       });
       // get session key from local storage
       const sessionKeyPrivKey = window.localStorage.getItem(
@@ -76,9 +67,9 @@ const Vote: React.FC<props> = ({ smartAccount, provider, address }) => {
       // set active module to sessionModule
       smartAccount = smartAccount.setActiveValidationModule(sessionModule);
 
-      const tx = (await voteContract.populateTransaction.vote(
-        proposalId,
-        voteType
+      const tx = (await voteContract.populateTransaction.propose(
+        name,
+        description
       )) as any;
 
       // build user op
@@ -143,31 +134,39 @@ const Vote: React.FC<props> = ({ smartAccount, provider, address }) => {
   };
   return (
     <div className="flex flex-col gap-2">
-      <h2 className="text-xl">Proposals</h2>
-      <div className="flex flex-col md:flex-row gap-4">
-        <div className="w-full md:w-1/3">
-          <CreateProposal
-            smartAccount={smartAccount}
-            provider={provider}
-            address={address}
-            updateProposals={updateProposals}
-          />
-        </div>
-        <div className="flex flex-wrap gap-4">
-          {proposals.map((proposal, index) => {
-            return (
-              <Proposal
-                key={index}
-                id={index}
-                proposal={proposal}
-                vote={vote}
-              />
-            );
-          })}
-        </div>
+      <div className="text-md font-bold">Create a new proposal</div>
+      <div className="grid w-full gap-1">
+        <Label htmlFor="name">Name</Label>
+        <Input
+          disabled={isSubmitting}
+          placeholder="Add proposal name"
+          id="name"
+          onChange={(e) => setName(e.target.value)}
+        />
       </div>
+      <div className="grid w-full gap-1">
+        <Label htmlFor="description">Description</Label>
+        <Textarea
+          disabled={isSubmitting}
+          placeholder="Add proposal description"
+          id="description"
+          onChange={(e) => setDescription(e.target.value)}
+        />
+      </div>
+      <Button
+        variant="outline"
+        onClick={async () => {
+          setIsSubmitting(true);
+          await createProposal(name, description);
+          setIsSubmitting(false);
+        }}
+        disabled={isSubmitting}
+      >
+        {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+        Submit
+      </Button>
     </div>
   );
 };
 
-export default Vote;
+export default CreateProposal;

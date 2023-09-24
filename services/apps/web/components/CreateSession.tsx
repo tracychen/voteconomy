@@ -8,16 +8,20 @@ import {
 } from "@biconomy/modules";
 import { BiconomySmartAccountV2 } from "@biconomy/account";
 import { defaultAbiCoder } from "ethers/lib/utils";
-import { toast, ToastContainer } from "react-toastify";
-import "react-toastify/dist/ReactToastify.css";
+
 import { chainConfigs, chainId } from "../utils/env";
 import { createTransaction, paymaster } from "../utils/biconomy";
 import Vote from "./Vote";
+import { Button } from "./ui/button";
+import { Loader2 } from "lucide-react";
+import { useToast } from "./ui/use-toast";
+import { ToastAction } from "./ui/toast";
+import CreateProposal from "./CreateProposal";
 
 interface props {
   smartAccount: BiconomySmartAccountV2;
   address: string;
-  provider: ethers.providers.Provider;
+  provider: ethers.providers.JsonRpcProvider;
 }
 
 const CreateSession: React.FC<props> = ({
@@ -28,17 +32,20 @@ const CreateSession: React.FC<props> = ({
   const [isSessionKeyModuleEnabled, setIsSessionKeyModuleEnabled] =
     useState<boolean>(false);
   const [isSessionActive, setIsSessionActive] = useState<boolean>(false);
-
-  //   useEffect(() => {
-  //     // check if session active
-  //     let checkSessionActive = async () => {
-  //       const sessionKeyPrivKey = window.localStorage.getItem("sessionPKey");
-  //       if (sessionKeyPrivKey) {
-  //         setIsSessionActive(true);
-  //       }
-  //     };
-  //     checkSessionActive();
-  //   }, []);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const { toast } = useToast();
+  useEffect(() => {
+    // check if session active
+    let checkSessionActive = async () => {
+      const sessionKeyPrivKey = window.localStorage.getItem(
+        `${await provider.getSigner().getAddress()}-sessionPKey`
+      );
+      if (sessionKeyPrivKey) {
+        setIsSessionActive(true);
+      }
+    };
+    checkSessionActive();
+  }, []);
 
   useEffect(() => {
     let checkSessionModuleEnabled = async () => {
@@ -63,15 +70,8 @@ const CreateSession: React.FC<props> = ({
   }, [isSessionKeyModuleEnabled, address, smartAccount, provider]);
 
   const createSession = async (enableSessionKeyModule: boolean) => {
-    toast.info("Creating Session...", {
-      position: "top-right",
-      autoClose: 15000,
-      hideProgressBar: false,
-      closeOnClick: true,
-      pauseOnHover: true,
-      draggable: true,
-      progress: undefined,
-      theme: "dark",
+    toast({
+      title: "Creating session...",
     });
     if (!address || !smartAccount || !provider) {
       alert("Please connect wallet first");
@@ -82,8 +82,10 @@ const CreateSession: React.FC<props> = ({
       const sessionSigner = ethers.Wallet.createRandom();
       const sessionKeyEOA = await sessionSigner.getAddress();
       console.log("sessionKeyEOA", sessionKeyEOA);
-      // BREWARE JUST FOR DEMO: update local storage with session key
-      window.localStorage.setItem("sessionPKey", sessionSigner.privateKey);
+      window.localStorage.setItem(
+        `${await provider.getSigner().getAddress()}-sessionPKey`,
+        sessionSigner.privateKey
+      );
 
       // generate sessionModule
       const sessionModule = await SessionKeyManagerModule.create({
@@ -133,15 +135,20 @@ const CreateSession: React.FC<props> = ({
 
       console.log("txHash", hash);
       setIsSessionActive(true);
-      toast.success(`Success! Session created succesfully`, {
-        position: "top-right",
-        autoClose: 18000,
-        hideProgressBar: false,
-        closeOnClick: true,
-        pauseOnHover: true,
-        draggable: true,
-        progress: undefined,
-        theme: "dark",
+      toast({
+        title: "Success! Session created succesfully",
+        action: (
+          <ToastAction
+            altText="View Transaction"
+            onClick={() =>
+              window.open(
+                `${chainConfigs[chainId].blockExplorerUrl}/tx/${hash}`
+              )
+            }
+          >
+            View Transaction
+          </ToastAction>
+        ),
       });
     } catch (err: any) {
       console.error(err);
@@ -149,32 +156,44 @@ const CreateSession: React.FC<props> = ({
   };
   return (
     <div>
-      <ToastContainer
-        position="top-right"
-        autoClose={5000}
-        hideProgressBar={false}
-        newestOnTop={false}
-        closeOnClick
-        rtl={false}
-        pauseOnFocusLoss
-        draggable
-        pauseOnHover
-        theme="dark"
-      />
       {!isSessionActive &&
         (isSessionKeyModuleEnabled ? (
-          <button onClick={() => createSession(false)}>Create Session</button>
+          <Button
+            onClick={async () => {
+              setIsLoading(true);
+              await createSession(false);
+              setIsLoading(false);
+            }}
+          >
+            {isLoading ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Creating session, please wait...
+              </>
+            ) : (
+              <>Create Session</>
+            )}
+          </Button>
         ) : (
-          <button onClick={() => createSession(true)}>
+          <Button
+            onClick={async () => {
+              setIsLoading(true);
+              await createSession(true);
+              setIsLoading(false);
+            }}
+          >
+            {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Enable and Create Session
-          </button>
+          </Button>
         ))}
       {isSessionActive && (
-        <Vote
-          smartAccount={smartAccount}
-          provider={provider}
-          address={address}
-        />
+        <>
+          <Vote
+            smartAccount={smartAccount}
+            provider={provider}
+            address={address}
+          />
+        </>
       )}
     </div>
   );

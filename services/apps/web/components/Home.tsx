@@ -7,15 +7,15 @@ import { ethers } from "ethers";
 import CreateSession from "../components/CreateSession";
 import { createAccount } from "../utils/biconomy";
 import { chainId } from "../utils/env";
+import { Button } from "./ui/button";
 
 export default function Home() {
   const [address, setAddress] = useState<string>("");
   const [loading, setLoading] = useState<boolean>(false);
   const [smartAccount, setSmartAccount] =
     useState<BiconomySmartAccountV2 | null>(null);
-  const [provider, setProvider] = useState<ethers.providers.Provider | null>(
-    null
-  );
+  const [provider, setProvider] =
+    useState<ethers.providers.JsonRpcProvider | null>(null);
 
   useEffect(() => {
     connect();
@@ -27,7 +27,7 @@ export default function Home() {
     try {
       setLoading(true);
       const provider = new ethers.providers.Web3Provider(ethereum);
-      //   TODO switch chain
+      //   TODO trigger reset on wallet switch
       await provider.send("eth_requestAccounts", []);
       await ethereum.request({
         method: "wallet_switchEthereumChain",
@@ -59,19 +59,21 @@ export default function Home() {
         />
       </Head>
       <main>
-        <h1>Session Voting Demo</h1>
-        {!loading && !address && (
-          <button onClick={connect}>Connect to Web3</button>
-        )}
-        {loading && <p>Loading Smart Account...</p>}
-        {address && <h2>Smart Account: {address}</h2>}
-        {smartAccount && provider && (
-          <CreateSession
-            smartAccount={smartAccount}
-            address={address}
-            provider={provider}
-          />
-        )}
+        <div className="p-8 flex flex-col gap-1">
+          <h1>Session Voting Demo</h1>
+          {!loading && !address && (
+            <Button onClick={connect}>Connect to Web3</Button>
+          )}
+          {loading && <p>Loading Smart Account...</p>}
+          {address && <h2>Smart Account: {address}</h2>}
+          {smartAccount && provider && (
+            <CreateSession
+              smartAccount={smartAccount}
+              address={address}
+              provider={provider}
+            />
+          )}
+        </div>
       </main>
     </>
   );
