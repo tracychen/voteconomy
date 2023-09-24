@@ -5,7 +5,7 @@ import { ethers } from "ethers";
 // TODO setup user authentication
 export const privateKey = process.env.PRIVATE_KEY || "";
 
-export const chainId = ChainId.BASE_GOERLI_TESTNET;
+export const chainId = Number(process.env.CHAIN_ID) as ChainId;
 
 // Map of chains to their config
 export const chainConfigs = {
