@@ -112,7 +112,7 @@ const CreateProposal: React.FC<props> = ({
       console.log("txHash", receipt.transactionHash);
       console.log("txHash", receipt.transactionHash);
       toast({
-        title: "Successfully voted",
+        title: "Successfully created proposal",
         action: (
           <ToastAction
             altText="View Transaction"
